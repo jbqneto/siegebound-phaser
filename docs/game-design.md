@@ -1,5 +1,9 @@
 # Game Design Direction — Prototype 0.1
 
+Mobile presentation shares the desktop match state, camera rules, and deterministic
+simulation. See [mobile-controls.md](mobile-controls.md). A future ranked mode may
+normalize its competitive information viewport independently of render viewport.
+
 ## Core fantasy
 
 Two crews command stylized mobile siege engines on destructible battlefields. The player reads terrain and wind, chooses angle and power, commits to a shot, and watches a dramatic ballistic payoff.

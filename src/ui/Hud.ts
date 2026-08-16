@@ -101,6 +101,7 @@ export class Hud {
     const weapon = model.currentWeapon;
     const activeColor = PLAYER_COLORS[model.activePlayer];
     const chargePercent = Math.round(machine.power * 100);
+    const touchLayout = (matchMedia('(pointer: coarse)').matches || new URLSearchParams(location.search).get('touchUi') === '1') && innerWidth >= innerHeight;
 
     this.chrome.clear();
     this.chrome.fillStyle(0x101820, 0.9);
@@ -111,6 +112,7 @@ export class Hud {
     this.chrome.strokeRoundedRect(18, 12, width - 36, 86, 8);
 
     const bottomY = height - 132;
+    if (!touchLayout) {
     this.chrome.fillStyle(0x101820, 0.94);
     this.chrome.fillRoundedRect(18, bottomY, width - 36, 114, 8);
     this.chrome.lineStyle(2, 0xdbe7ed, 0.28);
@@ -118,6 +120,7 @@ export class Hud {
     this.chrome.lineStyle(1, 0xdbe7ed, 0.18);
     this.chrome.lineBetween(260, bottomY + 12, 260, height - 30);
     this.chrome.lineBetween(width - 270, bottomY + 12, width - 270, height - 30);
+    }
 
     this.title.setText(`${model.stage.name}  ·  ${model.era.name}`);
     this.info.setText([
@@ -132,7 +135,7 @@ export class Hud {
     this.turnLabel.setText(`P${model.activePlayer + 1}  ·  ${model.turnSecondsLeft.toFixed(1)}s  ·  ${windArrow}${Math.abs(model.wind).toFixed(1)}`);
     this.turnLabel.setColor(model.turnSecondsLeft <= 5 ? '#ff806d' : '#fff4d6');
 
-    this.conditionLabel.setPosition(330, 74);
+    this.conditionLabel.setVisible(!touchLayout).setPosition(330, 74);
     this.conditionLabel.setText(`FIELD  ${model.condition.name}  →  NEXT  ${model.nextCondition.name}`);
     this.conditionLabel.setColor(model.conditionId === 'normal' ? '#dce9f2' : '#ffd47d');
 
@@ -150,6 +153,7 @@ export class Hud {
 
     const powerX = 340;
     const powerY = bottomY + 51;
+    if (!touchLayout) {
     this.chrome.fillStyle(0x070b0e, 1);
     this.chrome.fillRoundedRect(powerX, powerY, width - 650, 30, 4);
     this.chrome.fillStyle(0xe8b25d, 1);
@@ -170,15 +174,16 @@ export class Hud {
     this.chrome.fillStyle(0xfff4d6, 0.9);
     this.chrome.fillCircle(54, bottomY + 31, 6);
     this.chrome.fillCircle(76, bottomY + 31, 6);
+    }
 
-    this.machineReadout.setPosition(278, bottomY + 20);
+    this.machineReadout.setPosition(touchLayout ? width / 2 - 185 : 278, touchLayout ? height - 42 : bottomY + 20);
     const weaponKey = model.selectedWeaponRole === 'primary' ? '1' : model.selectedWeaponRole === 'secondary' ? '2' : '3';
-    this.machineReadout.setText(`${def.name.toUpperCase()}  ·  [${weaponKey}] ${weapon.role.toUpperCase()} ${weapon.name.toUpperCase()}  ·  ANGLE ${machine.angleDeg.toFixed(0)}°`);
+    this.machineReadout.setText(touchLayout ? `${weapon.name.toUpperCase()}  ·  ANGLE ${machine.angleDeg.toFixed(0)}°  ·  POWER ${chargePercent}%` : `${def.name.toUpperCase()}  ·  [${weaponKey}] ${weapon.role.toUpperCase()} ${weapon.name.toUpperCase()}  ·  ANGLE ${machine.angleDeg.toFixed(0)}°`);
 
-    this.queueReadout.setPosition(width - 255, bottomY + 20);
+    this.queueReadout.setPosition(touchLayout ? width / 2 - 100 : width - 255, touchLayout ? 75 : bottomY + 20);
     this.queueReadout.setText(`NEXT  ${model.initiativePreview.map((player) => `P${player + 1}`).join(' › ')}`);
 
-    this.help.setPosition(34, height - 28);
+    this.help.setVisible(!touchLayout).setPosition(34, height - 28);
     this.help.setText(
       `←/→ MOVE   ↑/↓ AIM   1/2/3 WEAPON   Q PASS   HOLD SPACE CHARGE / RELEASE FIRE   ·   ${predictionEnabled ? 'TRAJECTORY ON' : 'TRAJECTORY OFF'}   ·   N NEXT MAP   ·   R RESET`,
     );

@@ -36,6 +36,19 @@ npm run dev
 
 Abra o endereço mostrado pelo Vite (normalmente `http://localhost:5173`).
 
+### Testar em um telefone na rede local
+
+```bash
+npm install
+npm run dev:host
+```
+
+Conecte computador e telefone à mesma LAN/Wi-Fi e abra no telefone a URL
+**Network** impressa pelo Vite (por exemplo, `http://192.168.x.x:5173`; não copie
+esse exemplo literalmente). Se necessário, libere a porta do Vite no firewall
+local. O jogo móvel funciona em paisagem. `?touchUi=1` habilita os controles de
+toque para teste no desktop e `?viewportDebug=1` registra perfil e safe areas.
+
 ## Testes e build
 
 ```bash
