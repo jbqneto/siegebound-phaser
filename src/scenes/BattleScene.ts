@@ -15,6 +15,10 @@ import { GameplayInputController } from '../input/GameplayInputController';
 import { KeyboardInputAdapter } from '../input/KeyboardInputAdapter';
 import { TouchControls } from '../ui/TouchControls';
 import { readViewportProfile, shouldPauseForOrientation, type ViewportProfile } from '../ui/ViewportProfile';
+import { ApplicationPresentation } from '../ui/ApplicationPresentation';
+import { FullscreenController } from '../ui/FullscreenController';
+import { HowToPlay } from '../ui/HowToPlay';
+import { HudActions } from '../ui/HudActions';
 
 export class BattleScene extends Phaser.Scene {
   private readonly worldWidth = 1800;
@@ -35,7 +39,10 @@ export class BattleScene extends Phaser.Scene {
   private touchControls!: TouchControls;
   private viewportProfile!: ViewportProfile;
   private orientationGuard!: Phaser.GameObjects.Container;
-  private gameplayPaused = false;
+  private readonly presentation = new ApplicationPresentation();
+  private fullscreen!: FullscreenController;
+  private guide!: HowToPlay;
+  private hudActions!: HudActions;
   private predictionEnabled = true;
   private previousActivePlayer: 0 | 1 = 0;
   private hadProjectile = false;
@@ -64,12 +71,16 @@ export class BattleScene extends Phaser.Scene {
     });
     this.keyboardAdapter = new KeyboardInputAdapter(this.gameplayInput);
     this.touchControls = new TouchControls(this, this.gameplayInput);
+    this.fullscreen = new FullscreenController(this.game.canvas.parentElement ?? this.game.canvas);
+    this.guide = new HowToPlay(this, { continue: () => this.continueFromGuide(), toggleFullscreen: () => { void this.toggleFullscreen(); } });
+    this.hudActions = new HudActions(this, { help: () => this.openHelp(), fullscreen: () => { void this.toggleFullscreen(); } });
     this.createOrientationGuard();
     this.scale.on(Phaser.Scale.Events.RESIZE, this.refreshViewport, this);
     window.addEventListener('resize', this.refreshViewport);
     window.addEventListener('orientationchange', this.interruptInput);
+    document.addEventListener('fullscreenchange', this.refreshViewport);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      window.removeEventListener('resize', this.refreshViewport); window.removeEventListener('orientationchange', this.interruptInput);
+      window.removeEventListener('resize', this.refreshViewport); window.removeEventListener('orientationchange', this.interruptInput); document.removeEventListener('fullscreenchange', this.refreshViewport);
     });
     this.refreshViewport();
     this.rebuildStagePresentation();
@@ -77,7 +88,8 @@ export class BattleScene extends Phaser.Scene {
   }
 
   update(_time: number, deltaMs: number): void {
-    if (this.gameplayPaused) return;
+    this.guide.update(deltaMs);
+    if (this.presentation.state !== 'PLAYING') return;
     this.handleInput(deltaMs / 1000);
     this.model.update(deltaMs / 1000);
     if (!this.hadProjectile && this.model.projectile) this.projectileRenderer.resetTrail();
@@ -137,14 +149,37 @@ export class BattleScene extends Phaser.Scene {
   private readonly refreshViewport = (): void => {
     if (!this.gameplayInput) return;
     this.viewportProfile = readViewportProfile();
-    this.gameplayPaused = shouldPauseForOrientation(this.viewportProfile);
-    if (this.gameplayPaused) this.interruptInput();
+    this.presentation.setPortrait(shouldPauseForOrientation(this.viewportProfile));
+    if (this.presentation.state !== 'PLAYING') this.interruptInput();
     const touchOverride = new URLSearchParams(location.search).get('touchUi') === '1';
-    this.touchControls.layout(this.viewportProfile, !this.gameplayPaused && (this.viewportProfile.coarsePointer || touchOverride));
-    this.orientationGuard.setVisible(this.gameplayPaused);
+    const playing = this.presentation.state === 'PLAYING';
+    this.touchControls.layout(this.viewportProfile, playing && (this.viewportProfile.coarsePointer || touchOverride));
+    this.orientationGuard.setVisible(this.presentation.state === 'PORTRAIT_GUARD');
+    const guideVisible = this.presentation.state === 'PRE_MATCH_GUIDE' || this.presentation.state === 'PAUSED_HELP';
+    this.guide.setVisible(guideVisible);
+    this.guide.layout(this.viewportProfile, this.presentation.hasStarted, this.fullscreen.supported, this.fullscreen.active);
+    this.hudActions.setFullscreenActive(this.fullscreen.active);
+    this.hudActions.layout(this.viewportProfile, playing, this.fullscreen.supported || this.fullscreen.active);
+    this.scale.refresh();
     const debug = new URLSearchParams(location.search).get('viewportDebug') === '1';
     if (debug) console.info('[viewport]', this.viewportProfile);
   };
+  private continueFromGuide(): void {
+    if (this.viewportProfile.orientation === 'portrait') return;
+    this.presentation.continueMatch();
+    this.cameraDirector.focusPlayer(this.model);
+    this.refreshViewport();
+  }
+  private openHelp(): void {
+    if (this.presentation.state !== 'PLAYING') return;
+    this.interruptInput();
+    this.presentation.openHelp();
+    this.refreshViewport();
+  }
+  private async toggleFullscreen(): Promise<void> {
+    await this.fullscreen.toggle();
+    this.refreshViewport();
+  }
   private createOrientationGuard(): void {
     const shade = this.add.rectangle(640, 360, 1280, 720, 0x090d10, 0.98).setScrollFactor(0);
     const title = this.add.text(640, 330, 'Rotate your device to play', { fontFamily: 'system-ui, sans-serif', fontSize: '34px', fontStyle: 'bold', color: '#fff4d6' }).setOrigin(0.5).setScrollFactor(0);
