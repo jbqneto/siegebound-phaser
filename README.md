@@ -143,3 +143,6 @@ Para não forçar todas as máquinas em um único período histórico, o projeto
 ### Visual vertical slice architecture
 
 Battle presentation is split into data-driven backdrop layers, revision-aware terrain, replaceable machine views, projectile presentation, cosmetic effects, an artillery-specific camera director and fixed HUD. The `hidden-basin` stage provides the procedural **High Medieval Forest Siege** preset. See [`docs/art-direction.md`](docs/art-direction.md) for layer order and the future asset pipeline.
+## Mobile presentation policy
+
+Mobile play is landscape-only. The application pauses its local match timer, simulation, and held inputs while the orientation guard or How To Play overlay is visible. The match is not reset when orientation changes. A future networked multiplayer mode will require a server-authoritative orientation and timer policy so rotating a device cannot be used to pause a competitive turn.
