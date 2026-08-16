@@ -2,16 +2,15 @@ import Phaser from 'phaser';
 import type { MachineState } from '../core/types';
 import { MACHINES } from '../data/catalog';
 
-export function drawMachine(graphics: Phaser.GameObjects.Graphics, machine: MachineState, active: boolean): void {
+export function drawMachine(graphics: Phaser.GameObjects.Graphics, machine: MachineState, active: boolean, slopeRadians = 0): void {
   const def = MACHINES[machine.machineId];
   const x = machine.x;
   const y = machine.y;
   const facing = machine.facing;
-  const slope = 0;
 
   graphics.save();
   graphics.translateCanvas(x, y);
-  graphics.rotateCanvas(slope);
+  graphics.rotateCanvas(slopeRadians);
 
   const bodyColor = machine.playerId === 0 ? 0xb64d3b : 0x3c6ea8;
   const woodColor = 0x6f4b2c;

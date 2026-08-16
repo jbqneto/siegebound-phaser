@@ -86,6 +86,7 @@ export interface StageDefinition {
   machineIds: MachineId[];
   spawnX: [number, number];
   maxVisualContactDistance: number;
+  backgroundPreset: 'default' | 'high-medieval-forest';
 }
 
 export interface MachineState {

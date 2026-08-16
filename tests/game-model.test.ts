@@ -2,16 +2,42 @@ import { describe, expect, it } from 'vitest';
 import { GameModel } from '../src/game/GameModel';
 
 describe('game stages', () => {
-  it('rotates through all three stages when restarting', () => {
+  it('keeps restart and next-stage navigation distinct', () => {
     const model = new GameModel(1280, 720);
 
     expect(model.stageId).toBe('open-field');
-    model.reset();
-    expect(model.stageId).toBe('long-ridge');
-    model.reset();
-    expect(model.stageId).toBe('hidden-basin');
-    model.reset();
+    model.machines[0].hp = 1;
+    model.machines[0].movementLeft = 0;
+    model.selectedWeaponRole = 'signature';
+    model.resetCurrentStage();
     expect(model.stageId).toBe('open-field');
+    expect(model.machines[0].hp).toBeGreaterThan(1);
+    expect(model.machines[0].movementLeft).toBeGreaterThan(0);
+    expect(model.selectedWeaponRole).toBe('primary');
+    expect(model.activePlayer).toBe(0);
+    expect(model.turnSecondsLeft).toBe(20);
+
+    model.nextStage();
+    expect(model.stageId).toBe('long-ridge');
+    model.nextStage();
+    expect(model.stageId).toBe('hidden-basin');
+    model.nextStage();
+    expect(model.stageId).toBe('open-field');
+  });
+
+  it('cancels a charge and commits a pass when its timer expires', () => {
+    const model = new GameModel(1280, 720);
+    expect(model.beginCharge()).toBe(true);
+
+    model.update(20);
+
+    expect(model.activePlayer).toBe(1);
+    expect(model.turnNumber).toBe(2);
+    expect(model.turnState).toBe('PREPARE');
+    expect(model.projectile).toBeNull();
+    expect(model.turnSecondsLeft).toBe(GameModel.TURN_DURATION_SECONDS);
+    model.update(0);
+    expect(model.turnState).toBe('ACTIVE');
   });
 
   it('ends an idle turn after twenty seconds', () => {

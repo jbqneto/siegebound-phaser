@@ -10,6 +10,7 @@ export const STAGES: Record<StageId, StageDefinition> = {
     machineIds: ['ballista', 'onager'],
     spawnX: [0.17, 0.83],
     maxVisualContactDistance: 900,
+    backgroundPreset: 'default',
   },
   'long-ridge': {
     id: 'long-ridge',
@@ -20,6 +21,7 @@ export const STAGES: Record<StageId, StageDefinition> = {
     machineIds: ['onager', 'traction-trebuchet'],
     spawnX: [0.08, 0.92],
     maxVisualContactDistance: 560,
+    backgroundPreset: 'default',
   },
   'hidden-basin': {
     id: 'hidden-basin',
@@ -30,6 +32,7 @@ export const STAGES: Record<StageId, StageDefinition> = {
     machineIds: ['traction-trebuchet', 'counterweight-trebuchet'],
     spawnX: [0.07, 0.93],
     maxVisualContactDistance: 500,
+    backgroundPreset: 'high-medieval-forest',
   },
 };
 
