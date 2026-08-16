@@ -62,7 +62,7 @@ export class GameModel {
 
     if (!this.projectile || !this.projectile.alive) {
       this.turnSecondsLeft = Math.max(0, this.turnSecondsLeft - Math.max(0, deltaSeconds));
-      if (this.turnSecondsLeft <= 0.001) this.pass();
+      if (this.turnSecondsLeft <= 0.001) this.commitTimeoutPass();
       return;
     }
 
@@ -195,10 +195,9 @@ export class GameModel {
     this.setStage(next);
   }
 
-  reset(): void {
-    const current = STAGE_ORDER.indexOf(this.stageId);
-    const next = STAGE_ORDER[(current + 1) % STAGE_ORDER.length] ?? 'open-field';
-    this.setStage(next);
+  resetCurrentStage(): void {
+    this.random.reset();
+    this.setStage(this.stageId);
   }
 
   get currentMachine(): MachineState {
@@ -373,6 +372,12 @@ export class GameModel {
     this.nextConditionId = this.pickNextCondition();
     this.turnState = 'PREPARE';
     this.rollWind();
+  }
+
+  /** A timeout always cancels charging before committing the standard pass cost. */
+  private commitTimeoutPass(): void {
+    this.cancelCharge();
+    this.pass();
   }
 
   private pickNextCondition(): ConditionId {

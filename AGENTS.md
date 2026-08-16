@@ -39,3 +39,10 @@ A player must be able to:
 - Keep Phaser-specific code under `render`, `scenes`, and `ui`.
 - Do not hide balancing constants inside rendering code.
 - Prefer explicit domain names (`blastRadius`, `windFactor`, `movementPerTurn`) over generic numeric parameters.
+
+## Rendering foundation
+
+- Keep semantic world/HUD ordering centralized in `src/render/BattleDepth.ts`.
+- Background presets are data-driven; procedural layers must remain replaceable by assets.
+- `TerrainRenderer`, machine views, projectile presentation, effects, and `CameraDirector` consume gameplay state but never mutate it.
+- Camera motion and terrain slope rotation are presentation-only.

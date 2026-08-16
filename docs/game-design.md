@@ -83,7 +83,7 @@ nextActionAt += machine.baseDelay + weapon.delay
               + elapsedTurnSeconds * 12
 ```
 
-Ties favor player 1. The HUD shows the next six projected players. Projectile behaviors currently include standard flight, piercing through one terrain layer and a scatter impulse at the apex. These behaviors are selected by weapon data, not by machine-specific branches.
+Lower `nextActionAt` values act first; exact ties favor the lower `playerId`, so P0 wins a tie. The HUD shows the next six projected players. Projectile behaviors currently include standard flight, piercing through one terrain layer and a scatter impulse at the apex. These behaviors are selected by weapon data, not by machine-specific branches.
 
 The match model also exposes explicit turn states (`PREPARE`, `ACTIVE`, `CHARGING`, `PROJECTILE`, `RESOLVE`, `MATCH_END`). Battlefield Conditions currently rotate deterministically through Calm Field, Strong Gust, Wind Shift, Thermal Updraft, Heavy Rain and Supply Restriction. The active and next condition are public in the HUD; modifiers affect wind, gravity or muzzle velocity without changing the base wind value.
 
@@ -115,3 +115,7 @@ Do not add production systems until these have answers:
 - physically simulated ropes/arms
 
 These features are valuable only after the ballistic core loop proves itself.
+
+## Visual vertical slice foundation
+
+The High Medieval Forest Siege preset establishes atmospheric sky, hills, distant castle, far forest and near forest behind the authoritative heightmap. Terrain, machines, projectiles, effects and HUD retain progressively stronger contrast. Camera presentation follows explicit player, aiming, projectile, impact-hold and transition states without mutating the simulation.

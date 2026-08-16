@@ -54,12 +54,14 @@ npm run build
 | `1` / `2` / `3` | selecionar Primary / Secondary / Signature |
 | `Q` | passar o turno, aplicando custo de iniciativa |
 | `M` | trocar a máquina do jogador atual |
-| `N` | trocar de fase |
+| `N` | carregar a próxima fase |
 | `T` | trocar era, tema e roster de teste |
 | `P` | ligar/desligar previsão de trajetória (debug) |
-| `R` | reiniciar |
+| `R` | reiniciar a fase atual (estado completo da partida) |
 
 Cada turno dura 20 segundos. O contador fica no topo direito e fica vermelho nos últimos 5 segundos. O mostrador direcional de vento ao lado indica a direção e a intensidade aproximada. O disparo soma à linha do tempo o `baseDelay` da máquina, o `delay` da arma e o tempo gasto no turno; por isso uma ação barata pode colocar o mesmo jogador novamente na frente.
+
+Se o tempo terminar durante o carregamento, a carga é cancelada e um Pass é confirmado antes de a iniciativa avançar. Empates exatos na linha do tempo favorecem o menor `playerId` (P0). `R` reconstrói terreno, máquinas, HP, posições, iniciativa, condições, projétil, vencedor, relógio, arma selecionada e movimento da fase atual; `N` avança para a próxima fase.
 
 As condições atuais aparecem como `FIELD → NEXT FIELD` no topo. Elas são determinísticas por semente e alteram o disparo: Strong Gust, Wind Shift, Thermal Updraft, Heavy Rain e Supply Restriction.
 
@@ -124,3 +126,7 @@ Tudo é desenhado com `Phaser.GameObjects.Graphics`. O objetivo é provar físic
 ## Nota sobre as eras
 
 Para não forçar todas as máquinas em um único período histórico, o projeto já trata `Era` e `Machine` como dados separados. Isso permite campanha/mapas por período e, em modos arcade, liberar cross-era matchups deliberadamente estilizados.
+
+### Visual vertical slice architecture
+
+Battle presentation is split into data-driven backdrop layers, revision-aware terrain, replaceable machine views, projectile presentation, cosmetic effects, an artillery-specific camera director and fixed HUD. The `hidden-basin` stage provides the procedural **High Medieval Forest Siege** preset. See [`docs/art-direction.md`](docs/art-direction.md) for layer order and the future asset pipeline.
