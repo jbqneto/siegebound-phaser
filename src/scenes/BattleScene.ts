@@ -11,6 +11,10 @@ import { MachineRenderer } from '../render/MachineRenderer';
 import { ProjectileRenderer } from '../render/ProjectileRenderer';
 import { TerrainRenderer } from '../render/TerrainRenderer';
 import { Hud } from '../ui/Hud';
+import { GameplayInputController } from '../input/GameplayInputController';
+import { KeyboardInputAdapter } from '../input/KeyboardInputAdapter';
+import { TouchControls } from '../ui/TouchControls';
+import { readViewportProfile, shouldPauseForOrientation, type ViewportProfile } from '../ui/ViewportProfile';
 
 export class BattleScene extends Phaser.Scene {
   private readonly worldWidth = 1800;
@@ -26,13 +30,16 @@ export class BattleScene extends Phaser.Scene {
   private aimGraphics!: Phaser.GameObjects.Graphics;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keys!: Record<'space' | 'm' | 't' | 'n' | 'p' | 'r' | 'q' | 'one' | 'two' | 'three', Phaser.Input.Keyboard.Key>;
+  private gameplayInput!: GameplayInputController;
+  private keyboardAdapter!: KeyboardInputAdapter;
+  private touchControls!: TouchControls;
+  private viewportProfile!: ViewportProfile;
+  private orientationGuard!: Phaser.GameObjects.Container;
+  private gameplayPaused = false;
   private predictionEnabled = true;
-  private chargeSeconds = 0;
-  private charging = false;
   private previousActivePlayer: 0 | 1 = 0;
   private hadProjectile = false;
   private turnBanner!: Phaser.GameObjects.Text;
-  private static readonly MAX_CHARGE_SECONDS = 7;
 
   constructor() { super('battle'); }
 
@@ -50,17 +57,33 @@ export class BattleScene extends Phaser.Scene {
     this.cameraDirector = new CameraDirector(this.cameras.main, this.worldWidth, this.worldHeight);
     this.cursors = this.input.keyboard!.createCursorKeys();
     this.keys = this.input.keyboard!.addKeys({ space: Phaser.Input.Keyboard.KeyCodes.SPACE, m: Phaser.Input.Keyboard.KeyCodes.M, t: Phaser.Input.Keyboard.KeyCodes.T, n: Phaser.Input.Keyboard.KeyCodes.N, p: Phaser.Input.Keyboard.KeyCodes.P, r: Phaser.Input.Keyboard.KeyCodes.R, q: Phaser.Input.Keyboard.KeyCodes.Q, one: Phaser.Input.Keyboard.KeyCodes.ONE, two: Phaser.Input.Keyboard.KeyCodes.TWO, three: Phaser.Input.Keyboard.KeyCodes.THREE }) as typeof this.keys;
+    this.gameplayInput = new GameplayInputController(this.model, {
+      resetStage: () => { this.model.resetCurrentStage(); this.resetPresentation(); },
+      nextStage: () => { if (!this.model.projectile) { this.model.nextStage(); this.rebuildStagePresentation(); this.resetPresentation(); } },
+      toggleTrajectory: () => { this.predictionEnabled = !this.predictionEnabled; },
+    });
+    this.keyboardAdapter = new KeyboardInputAdapter(this.gameplayInput);
+    this.touchControls = new TouchControls(this, this.gameplayInput);
+    this.createOrientationGuard();
+    this.scale.on(Phaser.Scale.Events.RESIZE, this.refreshViewport, this);
+    window.addEventListener('resize', this.refreshViewport);
+    window.addEventListener('orientationchange', this.interruptInput);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      window.removeEventListener('resize', this.refreshViewport); window.removeEventListener('orientationchange', this.interruptInput);
+    });
+    this.refreshViewport();
     this.rebuildStagePresentation();
     this.cameraDirector.focusPlayer(this.model);
   }
 
   update(_time: number, deltaMs: number): void {
+    if (this.gameplayPaused) return;
     this.handleInput(deltaMs / 1000);
     this.model.update(deltaMs / 1000);
     if (!this.hadProjectile && this.model.projectile) this.projectileRenderer.resetTrail();
     this.hadProjectile = this.model.projectile !== null;
     if (this.model.activePlayer !== this.previousActivePlayer) {
-      this.previousActivePlayer = this.model.activePlayer; this.charging = false; this.chargeSeconds = 0;
+      this.previousActivePlayer = this.model.activePlayer; this.gameplayInput.clearHeld();
       this.cameraDirector.focusPlayer(this.model); this.showTurnBanner();
     }
     if (this.model.lastImpact) { this.projectileRenderer.resetTrail(); this.battleFx.showImpact(this.model.lastImpact); this.cameraDirector.impact(this.model.lastImpact); }
@@ -71,16 +94,11 @@ export class BattleScene extends Phaser.Scene {
     this.drawAimAndPrediction();
     this.cameraDirector.update(this.model, deltaMs);
     this.hud.update(this.model, this.predictionEnabled, this.model.hasVisualContact());
+    this.touchControls.update(this.model);
   }
 
   private handleInput(deltaSeconds: number): void {
-    if (Phaser.Input.Keyboard.JustDown(this.keys.r)) { this.model.resetCurrentStage(); this.resetPresentation(); return; }
-    if (Phaser.Input.Keyboard.JustDown(this.keys.n) && !this.model.projectile) { this.model.nextStage(); this.rebuildStagePresentation(); this.resetPresentation(); return; }
-    if (Phaser.Input.Keyboard.JustDown(this.keys.p)) this.predictionEnabled = !this.predictionEnabled;
-    if (Phaser.Input.Keyboard.JustDown(this.keys.one)) this.model.selectWeapon('primary');
-    if (Phaser.Input.Keyboard.JustDown(this.keys.two)) this.model.selectWeapon('secondary');
-    if (Phaser.Input.Keyboard.JustDown(this.keys.three)) this.model.selectWeapon('signature');
-    if (Phaser.Input.Keyboard.JustDown(this.keys.q)) { this.model.pass(); return; }
+    this.keyboardAdapter.update({ left: !!this.cursors.left?.isDown, right: !!this.cursors.right?.isDown, up: !!this.cursors.up?.isDown, down: !!this.cursors.down?.isDown, space: this.keys.space.isDown, one: this.keys.one.isDown, two: this.keys.two.isDown, three: this.keys.three.isDown, pass: this.keys.q.isDown, reset: this.keys.r.isDown, next: this.keys.n.isDown, trajectory: this.keys.p.isDown });
     if (Phaser.Input.Keyboard.JustDown(this.keys.t) && !this.model.projectile) {
       const next = ERA_ORDER[(ERA_ORDER.indexOf(this.model.eraId) + 1) % ERA_ORDER.length] as EraId;
       this.model.setEra(next); const roster = this.model.era.machineIds;
@@ -91,17 +109,7 @@ export class BattleScene extends Phaser.Scene {
       const id = this.model.currentMachine.machineId;
       this.model.cycleMachine(this.model.activePlayer, MACHINE_ORDER[(MACHINE_ORDER.indexOf(id) + 1) % MACHINE_ORDER.length] as MachineId);
     }
-    if (Phaser.Input.Keyboard.JustDown(this.keys.space) && !this.model.projectile && this.model.winner === null) { this.charging = this.model.beginCharge(); this.chargeSeconds = 0; }
-    if (this.charging && this.keys.space.isDown && !this.model.projectile && this.model.winner === null) {
-      this.chargeSeconds = Math.min(BattleScene.MAX_CHARGE_SECONDS, this.chargeSeconds + deltaSeconds);
-      this.model.setPower(0.15 + (this.chargeSeconds / BattleScene.MAX_CHARGE_SECONDS) * 0.85);
-    }
-    if (this.charging && Phaser.Input.Keyboard.JustUp(this.keys.space)) { this.charging = false; if (!this.model.fire()) this.model.cancelCharge(); }
-    if (this.model.projectile || this.model.winner !== null) return;
-    if (this.cursors.up?.isDown) this.model.changeAngle(34 * deltaSeconds);
-    if (this.cursors.down?.isDown) this.model.changeAngle(-34 * deltaSeconds);
-    if (this.cursors.left?.isDown) this.model.moveCurrent(-180 * deltaSeconds);
-    if (this.cursors.right?.isDown) this.model.moveCurrent(180 * deltaSeconds);
+    this.gameplayInput.update(deltaSeconds);
   }
 
   private drawAimAndPrediction(): void {
@@ -123,7 +131,26 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private rebuildStagePresentation(): void { this.backdrop.rebuild(this.model.stage, this.model.era); this.terrainRenderer.invalidate(); }
-  private resetPresentation(): void { this.chargeSeconds = 0; this.charging = false; this.previousActivePlayer = this.model.activePlayer; this.projectileRenderer.resetTrail(); this.terrainRenderer.invalidate(); this.cameraDirector.focusPlayer(this.model); }
+  private resetPresentation(): void { this.gameplayInput.clearHeld(); this.previousActivePlayer = this.model.activePlayer; this.projectileRenderer.resetTrail(); this.terrainRenderer.invalidate(); this.cameraDirector.focusPlayer(this.model); }
+
+  private readonly interruptInput = (): void => { this.keyboardAdapter?.clear(); this.touchControls?.cancel(); };
+  private readonly refreshViewport = (): void => {
+    if (!this.gameplayInput) return;
+    this.viewportProfile = readViewportProfile();
+    this.gameplayPaused = shouldPauseForOrientation(this.viewportProfile);
+    if (this.gameplayPaused) this.interruptInput();
+    const touchOverride = new URLSearchParams(location.search).get('touchUi') === '1';
+    this.touchControls.layout(this.viewportProfile, !this.gameplayPaused && (this.viewportProfile.coarsePointer || touchOverride));
+    this.orientationGuard.setVisible(this.gameplayPaused);
+    const debug = new URLSearchParams(location.search).get('viewportDebug') === '1';
+    if (debug) console.info('[viewport]', this.viewportProfile);
+  };
+  private createOrientationGuard(): void {
+    const shade = this.add.rectangle(640, 360, 1280, 720, 0x090d10, 0.98).setScrollFactor(0);
+    const title = this.add.text(640, 330, 'Rotate your device to play', { fontFamily: 'system-ui, sans-serif', fontSize: '34px', fontStyle: 'bold', color: '#fff4d6' }).setOrigin(0.5).setScrollFactor(0);
+    const detail = this.add.text(640, 380, 'SiegeBound is designed for landscape mode.', { fontFamily: 'system-ui, sans-serif', fontSize: '18px', color: '#dce9f2' }).setOrigin(0.5).setScrollFactor(0);
+    this.orientationGuard = this.add.container(0, 0, [shade, title, detail]).setDepth(100).setScrollFactor(0).setVisible(false);
+  }
   private showTurnBanner(): void {
     this.turnBanner.setText(`PLAYER ${this.model.activePlayer + 1} TURN`).setAlpha(1);
     this.tweens.killTweensOf(this.turnBanner); this.tweens.add({ targets: this.turnBanner, alpha: 0, delay: 380, duration: 850, ease: 'Sine.easeIn' });

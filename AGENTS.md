@@ -46,3 +46,12 @@ A player must be able to:
 - Background presets are data-driven; procedural layers must remain replaceable by assets.
 - `TerrainRenderer`, machine views, projectile presentation, effects, and `CameraDirector` consume gameplay state but never mutate it.
 - Camera motion and terrain slope rotation are presentation-only.
+
+## Mobile presentation
+
+- Mobile gameplay is landscape-only and shares the desktop `GameModel`.
+- Keyboard and touch must issue commands through the shared input controller.
+- Viewport capability detection, safe-area measurement, orientation guards, and
+  responsive touch layout belong in presentation/UI code, never `src/core`.
+- A future competitive information viewport may differ from the render viewport;
+  physical screen size must never alter simulation or weapon behavior.
